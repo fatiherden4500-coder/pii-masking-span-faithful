@@ -1,0 +1,102 @@
+# FULL-DATA configuration: identical test/val/RL pool to default.yaml; SFT trains on ALL remaining documents.
+# Override any key from the CLI:  --set sft.epochs=2 --set run_dir=/scratch/runs/main
+run_dir: ./runs/full
+precision: auto            # auto | bf16 | fp16 | fp32
+force_cpu: false           # true only for local CPU smoke tests (Apple MPS gives NaN losses)
+seeds: [1, 2, 3]
+
+data:
+  dataset: ai4privacy/pii-masking-300k
+  language: English
+  split_seed: 13
+  n_train: 1000000          # -> all remaining documents (~32.9k records)
+  n_val: 500
+  n_test: 1000
+  n_rl_pool: 3000           # prompts for GRPO/RLOO/DPO-pairs (disjoint docs from test/val)
+  max_source_chars: 1600
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  lora_targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+generation:
+  batch_size: 32
+  max_new_tokens: 448
+  eval_temperature: 0.0     # greedy for evaluation
+
+sft:
+  epochs: 2
+  lr: 2.0e-4
+  batch_size: 8
+  grad_accum: 2
+  max_length: 1024
+  warmup_ratio: 0.03
+  save_steps: 500
+
+reward:                     # composite span-based reward (rewards.py)
+  w_protect: 2.0            # risk-weighted fraction of PII spans NOT leaked
+  w_typed: 1.0              # fraction of spans masked with the correct type
+  w_preserve: 1.5           # fraction of non-PII source tokens copied verbatim
+  w_invalid: 0.5            # penalty: fraction of placeholders with unknown type
+  w_halluc: 0.5             # penalty: hallucinated tokens / source tokens (capped at 1)
+  control: null             # null | random | format  (spurious-reward ablation controls)
+
+bon:
+  n: 8
+  temperature: 0.8
+  top_p: 0.95
+
+dpo:
+  n_prompts: 2000
+  n_samples: 4
+  temperature: 0.9
+  min_margin: 0.1
+  beta: 0.1
+  lr: 5.0e-6
+  epochs: 2
+  batch_size: 2              # 2x8 = effective 16 (4x4 OOMs on a 32 GB GPU)
+  grad_accum: 8
+  max_length: 1024
+  save_steps: 200
+
+grpo:
+  max_steps: 600
+  num_generations: 8
+  per_device_batch: 8       # prompts*generations per device step; must be divisible by num_generations
+  grad_accum: 4
+  lr: 1.0e-5
+  beta: 0.04                # KL to the SFT reference (adapter disabled)
+  temperature: 0.9
+  max_completion_length: 448
+  loss_type: dapo
+  save_steps: 100
+  logging_steps: 5
+
+rloo:
+  max_steps: 600
+  num_generations: 4
+  per_device_batch: 8
+  grad_accum: 4
+  lr: 1.0e-5
+  beta: 0.05
+  temperature: 0.9
+  max_completion_length: 448
+  save_steps: 100
+  logging_steps: 5
+
+tokclf:
+  model: microsoft/deberta-v3-base
+  epochs: 5
+  lr: 3.0e-5
+  batch_size: 16
+  max_length: 512
+
+zeroshot:
+  model: null               # null -> model.name (base, no adapter)
+
+eval:
+  bootstrap: 2000
+  reference_method: sft

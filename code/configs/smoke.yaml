@@ -1,0 +1,101 @@
+# Tiny end-to-end smoke test (minutes). Run before launching long jobs on a new machine:
+#   bash run_all.sh configs/smoke.yaml
+run_dir: ./runs/smoke
+precision: auto
+seeds: [1]
+
+data:
+  dataset: ai4privacy/pii-masking-300k
+  language: English
+  split_seed: 13
+  n_train: 24
+  n_val: 8
+  n_test: 8
+  n_rl_pool: 16
+  max_source_chars: 600
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_targets: [q_proj, v_proj]
+
+generation:
+  batch_size: 4
+  max_new_tokens: 64
+  eval_temperature: 0.0
+
+sft:
+  epochs: 1
+  lr: 2.0e-4
+  batch_size: 4
+  grad_accum: 1
+  max_length: 512
+  warmup_ratio: 0.0
+  save_steps: 4
+
+reward:
+  w_protect: 2.0
+  w_typed: 1.0
+  w_preserve: 1.5
+  w_invalid: 0.5
+  w_halluc: 0.5
+  control: null
+
+bon:
+  n: 2
+  temperature: 0.8
+  top_p: 0.95
+
+dpo:
+  n_prompts: 8
+  n_samples: 3
+  temperature: 1.0
+  min_margin: 0.0
+  beta: 0.1
+  lr: 5.0e-6
+  epochs: 1
+  batch_size: 2
+  grad_accum: 1
+  max_length: 512
+  save_steps: 50
+
+grpo:
+  max_steps: 2
+  num_generations: 2
+  per_device_batch: 2
+  grad_accum: 1
+  lr: 1.0e-5
+  beta: 0.04
+  temperature: 0.9
+  max_completion_length: 32
+  loss_type: dapo
+  save_steps: 50
+  logging_steps: 1
+
+rloo:
+  max_steps: 2
+  num_generations: 2
+  per_device_batch: 2
+  grad_accum: 1
+  lr: 1.0e-5
+  beta: 0.05
+  temperature: 0.9
+  max_completion_length: 32
+  save_steps: 50
+  logging_steps: 1
+
+tokclf:
+  model: microsoft/deberta-v3-base
+  epochs: 1
+  lr: 3.0e-5
+  batch_size: 4
+  max_length: 256
+
+zeroshot:
+  model: null
+
+eval:
+  bootstrap: 200
+  reference_method: sft

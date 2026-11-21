@@ -1,0 +1,15 @@
+# Pinned to the versions the pipeline was developed and smoke-tested with.
+# Install torch matching your CUDA first (https://pytorch.org), then: pip install -r requirements.txt
+torch>=2.5
+transformers==5.15.0
+trl==1.10.0
+peft==0.20.0
+datasets==5.0.1
+accelerate==1.14.0
+pyyaml>=6.0
+sentencepiece
+protobuf
+tiktoken
+# optional baseline:
+# presidio-analyzer
+# spacy  (+ python -m spacy download en_core_web_lg)
